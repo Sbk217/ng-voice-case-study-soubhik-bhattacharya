@@ -4,7 +4,7 @@ metadata:
   name: mysql
   labels: {{- include "mysql.labels" . | nindent 4 }}
 spec:
-  clusterIP: None              # headles with DNS per pod (mysql-0.mysql.casestudy.svc) so that webserver replica can contact directly
+  clusterIP: None              # headless with DNS per pod (mysql-0.mysql.casestudy.svc) so that webserver replica can contact directly
   selector:
     app: mysql
   ports:

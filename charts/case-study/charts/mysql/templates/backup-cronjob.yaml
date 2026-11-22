@@ -1,0 +1,64 @@
+{{- /* Scheduled mysqldump from the replica, uploaded to S3 */ -}}
+{{- if .Values.backup.enabled }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: mysql-backup
+  labels: {{- include "mysql.labels" . | nindent 4 }}
+spec:
+  schedule: {{ .Values.backup.schedule | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        metadata:
+          labels:
+            app: mysql-backup
+        spec:
+          serviceAccountName: mysql-backup
+          restartPolicy: Never
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 999
+            runAsGroup: 999
+            seccompProfile: { type: RuntimeDefault }
+          initContainers:
+            - name: dump
+              image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+              securityContext: { allowPrivilegeEscalation: false, capabilities: { drop: [ "ALL" ] } }
+              env:
+                - name: MYSQL_PWD
+                  valueFrom: { secretKeyRef: { name: mysql-auth, key: root-password } }
+              command: [ "bash", "-c" ]
+              args:
+                - |
+                  set -euo pipefail
+                  mysqldump -h {{ .Values.backup.sourceHost }} -uroot \
+                    --single-transaction --routines --triggers --events \
+                    --set-gtid-purged=OFF \
+                    --databases {{ join " " .Values.backup.databases }} > /backup/dump.sql
+                  ls -l /backup
+              volumeMounts:
+                - { name: backup, mountPath: /backup }
+          containers:
+            - name: upload
+              image: {{ .Values.backup.awsCliImage }}
+              securityContext: { allowPrivilegeEscalation: false, capabilities: { drop: [ "ALL" ] } }
+              env:
+                - { name: AWS_REGION, value: {{ .Values.backup.region | quote }} }
+                - { name: HOME, value: /tmp }
+              command: [ "sh", "-c" ]
+              args:
+                - |
+                  set -e
+                  KEY="mysql/$(date -u +%Y-%m-%dT%H-%M-%SZ).sql"
+                  aws s3 cp /backup/dump.sql "s3://{{ .Values.backup.bucket }}/$KEY"
+                  echo "uploaded s3://{{ .Values.backup.bucket }}/$KEY"
+              volumeMounts:
+                - { name: backup, mountPath: /backup }
+          volumes:
+            - { name: backup, emptyDir: { } }
+{{- end }}

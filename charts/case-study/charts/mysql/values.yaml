@@ -1,10 +1,35 @@
 image:
   repository: mysql
   tag: "8.4"
-replicas: 2
+members:
+  - name: db-x
+    role: primary
+    nodes: [ node-1 ]
+  - name: db-y
+    role: replica
+    nodes: [ node-2, node-3 ]
 storage:
   className: gp3
   size: 10Gi
 resources:
   requests: { cpu: 250m, memory: 512Mi }
-  limits:   { memory: 1Gi }
+  limits: { memory: 1Gi }
+
+networkPolicy:
+  allowedApps:
+    - web   # only to the web server app
+    - mysql # required for replication from the primary db-x DB
+    - mysql-backup # for backup pods reaching the MySQL
+
+backup:
+  enabled: true
+  schedule: "0 2 * * *"               # daily 02:00 UTC  → RPO ≤ 24h
+  bucket: "eks-casestudy-sbox-01-mysql-backup-37da9cb99d2813b38b495bfed1"
+  region: eu-central-1
+  databases: [ demo ]
+  sourceHost: db-y-0.mysql            # dump from the replica
+  awsCliImage: amazon/aws-cli:2.42.1
+restore:
+  enabled: false
+  file: ""                            # e.g. mysql/2026-11-22T21-30-00Z.sql
+  targetHost: db-x-0.mysql            # always restore into the primary

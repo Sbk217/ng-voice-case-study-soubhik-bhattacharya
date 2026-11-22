@@ -1,0 +1,30 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: web-config
+  labels: {{- include "web.labels" . | nindent 4 }}
+data:
+  default.conf: |
+    server {
+      listen 8080;
+      server_name _;
+      root /usr/share/nginx/html;
+      add_header X-Served-By $hostname always;   # custom header: proves which pod answered
+      location / {
+        index index.html;
+      }
+      location /healthz {
+        access_log off;
+        return 200 "ok\n";
+      }
+    }
+  index.html.tpl: |
+    <!DOCTYPE html>
+    <html>
+      <head><title>ng-voice case study</title></head>
+      <body>
+        <h1>ng-voice case study</h1>
+        <p>Pod IP: __POD_IP__</p>
+        <p>serving-host=__SERVING_HOST__</p>
+      </body>
+    </html>

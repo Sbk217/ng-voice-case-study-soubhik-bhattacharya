@@ -1,103 +1,104 @@
+{{- $root := . }}
+{{- $primary := "" }}
+{{- range .Values.members }}{{ if eq .role "primary" }}{{ $primary = .name }}{{ end }}{{ end }}
+{{- range $i, $m := .Values.members }}
+---
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: mysql
-  labels: {{- include "mysql.labels" . | nindent 4 }}
+  name: {{ $m.name }}
+  labels: {{- include "mysql.labels" $root | nindent 4 }}
 spec:
-  serviceName: mysql            # ties pods to the headless Service for stable DNS
-  replicas: {{ .Values.replicas }}
+  serviceName: mysql
+  replicas: 1
   selector:
-    matchLabels: {{- include "mysql.selectorLabels" . | nindent 6 }}
+    matchLabels:
+      {{- include "mysql.selectorLabels" $root | nindent 6 }}
+      mysql-member: {{ $m.name }}
   template:
     metadata:
-      labels: {{- include "mysql.labels" . | nindent 8 }}
+      labels:
+        {{- include "mysql.labels" $root | nindent 8 }}
+        mysql-member: {{ $m.name }}
+        mysql-role: {{ $m.role }}
     spec:
-      securityContext: #pod level
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: casestudy.io/db-node
+                    operator: In
+                    values: {{- toYaml $m.nodes | nindent 22 }}
+      securityContext:
         runAsNonRoot: true
-        runAsUser: 999 #run as musql user and not oot
+        runAsUser: 999
         runAsGroup: 999
-        fsGroup: 999   # mysql user in the official image; can write to the EBS volume
-        seccompProfile:
-          type: RuntimeDefault
-
-      initContainers: # runs once, before MySQL, on each pod start
+        fsGroup: 999
+        seccompProfile: { type: RuntimeDefault }
+      initContainers:
         - name: init-mysql
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          image: "{{ $root.Values.image.repository }}:{{ $root.Values.image.tag }}"
           securityContext:
-            allowPrivilegeEscalation: false # no privilege escalation, all Linux capabilities dropped.
+            allowPrivilegeEscalation: false
             capabilities: { drop: [ "ALL" ] }
           command: [ "bash", "-c" ]
-          args: # Ordinal 0 gets the primary config and init script; any other ordinal gets the replica's. A StatefulSet numbers its pods 0, 1, 2, …, and that number is the ordinal. It's part of the pod name (mysql-0, mysql-1) and stays the same
-            # across restarts. The init script extracts it with ${HOSTNAME##*-} (everything after the last -) to decide the role (0 is the primary, anything else a replica) and the unique server-id (100 + ordinal).
+          args:
             - |
               set -ex
-              ordinal=${HOSTNAME##*-}
-              printf '[mysqld]\nserver-id=%d\n' $((100 + ordinal)) > /mnt/conf.d/server-id.cnf
-              if [ "$ordinal" -eq 0 ]; then
+              printf '[mysqld]\nserver-id=%d\n' {{ add 100 $i }} > /mnt/conf.d/server-id.cnf
+              if [ "{{ $m.role }}" = "primary" ]; then
                 cp /mnt/config-map/primary.cnf     /mnt/conf.d/
                 cp /mnt/config-map/primary-init.sh /mnt/initdb/
               else
                 cp /mnt/config-map/replica.cnf     /mnt/conf.d/
                 cp /mnt/config-map/replica-init.sh /mnt/initdb/
               fi
-          volumeMounts: # reads the ConfigMap and writes into two shared emptyDirs
+          volumeMounts:
             - { name: conf,       mountPath: /mnt/conf.d }
             - { name: initdb,     mountPath: /mnt/initdb }
             - { name: config-map, mountPath: /mnt/config-map }
-
-      containers: # the database
+      containers:
         - name: mysql
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          image: "{{ $root.Values.image.repository }}:{{ $root.Values.image.tag }}"
           securityContext:
             allowPrivilegeEscalation: false
-            capabilities:
-              drop: [ "ALL" ]
+            capabilities: { drop: [ "ALL" ] }
           ports:
-            - name: mysql
-              containerPort: 3306
+            - { name: mysql, containerPort: 3306 }
           env:
             - name: MYSQL_ROOT_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: mysql-auth
-                  key: root-password
+              valueFrom: { secretKeyRef: { name: mysql-auth, key: root-password } }
             - name: MYSQL_REPLICATION_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: mysql-auth
-                  key: replication-password
+              valueFrom: { secretKeyRef: { name: mysql-auth, key: replication-password } }
+            - name: MYSQL_SOURCE_HOST #also used in the replica-init.sh script
+              value: "{{ $primary }}-0.mysql"
           volumeMounts:
-            - name: data
-              mountPath: /var/lib/mysql # the db file on EBS for persistency
-            - name: conf
-              mountPath: /etc/mysql/conf.d # the .cnf files the init container prepared.
-            - name: initdb
-              mountPath: /docker-entrypoint-initdb.d # scripts run only on first initialization.
-          resources: {{- toYaml .Values.resources | nindent 12 }}
-          readinessProbe: # "Ready" only when MySQL answers over TCP. Traffic and the next pod wait for it.
+            - { name: data,   mountPath: /var/lib/mysql }
+            - { name: conf,   mountPath: /etc/mysql/conf.d }
+            - { name: initdb, mountPath: /docker-entrypoint-initdb.d }
+          resources: {{- toYaml $root.Values.resources | nindent 12 }}
+          readinessProbe:
             exec:
               command: [ "sh", "-c", "MYSQL_PWD=\"$MYSQL_ROOT_PASSWORD\" mysql -h 127.0.0.1 -uroot -e 'SELECT 1'" ]
             initialDelaySeconds: 15
             periodSeconds: 10
-          livenessProbe: # restarts the container if MySQL stops responding.
+          livenessProbe:
             exec:
               command: [ "sh", "-c", "MYSQL_PWD=\"$MYSQL_ROOT_PASSWORD\" mysqladmin ping -uroot" ]
             initialDelaySeconds: 60
             periodSeconds: 20
       volumes:
-        - name: conf # scratch folders shared between the init container and MySQL, recreated with each pod.
-          emptyDir: { }
-        - name: initdb
-          emptyDir: { }
-        - name: config-map
-          configMap:
-            name: mysql-config
+        - { name: conf,       emptyDir: { } }  # emptyDir: empty scratch space that is initialized when the Pod is assigned to a node, and is deleted when the Pod is removed from that node.
+        - { name: initdb,     emptyDir: { } }
+        - { name: config-map, configMap: { name: mysql-config } }
   volumeClaimTemplates:
     - metadata:
         name: data
       spec:
-        accessModes: [ "ReadWriteOnce" ] # mounted by one node at a time, which is right for EBS.
-        storageClassName: {{ .Values.storage.className }}
+        accessModes: [ "ReadWriteOnce" ]
+        storageClassName: {{ $root.Values.storage.className }}
         resources:
           requests:
-            storage: {{ .Values.storage.size }}
+            storage: {{ $root.Values.storage.size }}
+{{- end }}

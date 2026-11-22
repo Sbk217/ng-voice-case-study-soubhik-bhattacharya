@@ -1,0 +1,48 @@
+{{- /* One-off restore into the primary; enable with --set mysql.restore.enabled=true */ -}}
+{{- if .Values.restore.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: mysql-restore-{{ .Release.Revision }}
+  labels: {{- include "mysql.labels" . | nindent 4 }}
+spec:
+  backoffLimit: 1
+  template:
+    metadata:
+      labels:
+        app: mysql-backup
+    spec:
+      serviceAccountName: mysql-backup
+      restartPolicy: Never
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 999
+        runAsGroup: 999
+        seccompProfile: { type: RuntimeDefault }
+      initContainers:
+        - name: download
+          image: {{ .Values.backup.awsCliImage }}
+          securityContext: { allowPrivilegeEscalation: false, capabilities: { drop: [ "ALL" ] } }
+          env:
+            - { name: AWS_REGION, value: {{ .Values.backup.region | quote }} }
+            - { name: HOME, value: /tmp }
+          command: [ "sh", "-c" ]
+          args:
+            - aws s3 cp "s3://{{ .Values.backup.bucket }}/{{ required "restore.file is required" .Values.restore.file }}" /backup/dump.sql
+          volumeMounts:
+            - { name: backup, mountPath: /backup }
+      containers:
+        - name: restore
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          securityContext: { allowPrivilegeEscalation: false, capabilities: { drop: [ "ALL" ] } }
+          env:
+            - name: MYSQL_PWD
+              valueFrom: { secretKeyRef: { name: mysql-auth, key: root-password } }
+          command: [ "bash", "-c" ]
+          args:
+            - mysql -h {{ .Values.restore.targetHost }} -uroot < /backup/dump.sql && echo "restore done"
+          volumeMounts:
+            - { name: backup, mountPath: /backup }
+      volumes:
+        - { name: backup, emptyDir: { } }
+{{- end }}
