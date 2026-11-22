@@ -1,0 +1,7 @@
+storageClass:
+  name: gp3
+  type: gp3
+  reclaimPolicy: Retain
+
+mysql: #everything under this key is passed to the sub chart
+  enabled: true

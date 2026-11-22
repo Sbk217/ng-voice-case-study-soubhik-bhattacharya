@@ -1,0 +1,29 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mysql-config
+data:
+  primary.cnf: |
+    [mysqld]
+    gtid_mode = ON
+    enforce_gtid_consistency = ON
+  replica.cnf: |
+    [mysqld]
+    gtid_mode = ON
+    enforce_gtid_consistency = ON
+  primary-init.sh: |
+    MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -uroot <<EOF
+    CREATE USER IF NOT EXISTS 'repl'@'%' IDENTIFIED BY '${MYSQL_REPLICATION_PASSWORD}';
+    GRANT REPLICATION SLAVE ON *.* TO 'repl'@'%';
+    EOF
+  replica-init.sh: |
+    MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -uroot <<EOF
+    CHANGE REPLICATION SOURCE TO
+      SOURCE_HOST='mysql-0.mysql',
+      SOURCE_USER='repl',
+      SOURCE_PASSWORD='${MYSQL_REPLICATION_PASSWORD}',
+      SOURCE_AUTO_POSITION=1,
+      GET_SOURCE_PUBLIC_KEY=1;
+    SET PERSIST read_only = ON;
+    SET PERSIST super_read_only = ON;
+    EOF
