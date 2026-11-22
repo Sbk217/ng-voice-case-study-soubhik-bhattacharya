@@ -5,3 +5,6 @@ storageClass:
 
 mysql: #everything under this key is passed to the sub chart
   enabled: true
+
+web:
+  enabled: true

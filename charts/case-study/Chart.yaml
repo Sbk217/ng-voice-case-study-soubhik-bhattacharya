@@ -7,3 +7,7 @@ dependencies:
   - name: mysql
     version: 0.1.0
     condition: mysql.enabled
+
+  - name: web
+    version: 0.1.0
+    condition: web.enabled
