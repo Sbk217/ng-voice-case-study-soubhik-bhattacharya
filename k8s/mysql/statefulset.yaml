@@ -1,0 +1,107 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mysql
+  namespace: casestudy
+spec:
+  serviceName: mysql            # ties pods to the headless Service for stable DNS
+  replicas: 2
+  selector:
+    matchLabels:
+      app: mysql
+  template:
+    metadata:
+      labels:
+        app: mysql              # required for the creation of NetworkPolicy required in (task 4)
+    spec:
+      securityContext: #pod level
+        runAsNonRoot: true
+        runAsUser: 999 #run as musql user and not oot
+        runAsGroup: 999
+        fsGroup: 999   # mysql user in the official image; can write to the EBS volume
+        seccompProfile:
+          type: RuntimeDefault
+
+      initContainers: # runs once, before MySQL, on each pod start
+        - name: init-mysql
+          image: mysql:8.4
+          securityContext:
+            allowPrivilegeEscalation: false # no privilege escalation, all Linux capabilities dropped.
+            capabilities: { drop: [ "ALL" ] }
+          command: [ "bash", "-c" ]
+          args: # Ordinal 0 gets the primary config and init script; any other ordinal gets the replica's. A StatefulSet numbers its pods 0, 1, 2, …, and that number is the ordinal. It's part of the pod name (mysql-0, mysql-1) and stays the same
+          # across restarts. The init script extracts it with ${HOSTNAME##*-} (everything after the last -) to decide the role (0 is the primary, anything else a replica) and the unique server-id (100 + ordinal).
+            - |
+              set -ex
+              ordinal=${HOSTNAME##*-}
+              printf '[mysqld]\nserver-id=%d\n' $((100 + ordinal)) > /mnt/conf.d/server-id.cnf
+              if [ "$ordinal" -eq 0 ]; then
+                cp /mnt/config-map/primary.cnf     /mnt/conf.d/
+                cp /mnt/config-map/primary-init.sh /mnt/initdb/
+              else
+                cp /mnt/config-map/replica.cnf     /mnt/conf.d/
+                cp /mnt/config-map/replica-init.sh /mnt/initdb/
+              fi
+          volumeMounts: # reads the ConfigMap and writes into two shared emptyDirs
+            - { name: conf,       mountPath: /mnt/conf.d }
+            - { name: initdb,     mountPath: /mnt/initdb }
+            - { name: config-map, mountPath: /mnt/config-map }
+
+      containers: # the database
+        - name: mysql
+          image: mysql:8.4      # official image fetching
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          ports:
+            - name: mysql
+              containerPort: 3306
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-auth
+                  key: root-password
+            - name: MYSQL_REPLICATION_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-auth
+                  key: replication-password
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/mysql # the db file on EBS for persistency
+            - name: conf
+              mountPath: /etc/mysql/conf.d # the .cnf files the init container prepared.
+            - name: initdb
+              mountPath: /docker-entrypoint-initdb.d # scripts run only on first initialization.
+          resources:
+            requests: { cpu: 250m, memory: 512Mi } #setting uperlmits for db provisioning
+            limits:   { memory: 1Gi }
+          readinessProbe: # "Ready" only when MySQL answers over TCP. Traffic and the next pod wait for it.
+            exec:
+              command: ["sh", "-c", "MYSQL_PWD=\"$MYSQL_ROOT_PASSWORD\" mysql -h 127.0.0.1 -uroot -e 'SELECT 1'"]
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          livenessProbe: # restarts the container if MySQL stops responding.
+            exec:
+              command: ["sh", "-c", "MYSQL_PWD=\"$MYSQL_ROOT_PASSWORD\" mysqladmin ping -h 127.0.0.1 -uroot"]
+            initialDelaySeconds: 60
+            periodSeconds: 20
+      volumes:
+        - name: conf # scratch folders shared between the init container and MySQL, recreated with each pod.
+          emptyDir: {}
+        - name: initdb
+          emptyDir: {}
+        - name: config-map
+          configMap:
+            name: mysql-config
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"] # mounted by one node at a time, which is right for EBS.
+        storageClassName: gp3 # my class, giving an encrypted gp3 EBS volume in the pod's AZ.
+        resources:
+          requests:
+            storage: 10Gi
