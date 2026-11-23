@@ -49,7 +49,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: multus
 rules:
-  - apiGroups: ["k8s.cni.cncf.io"]
+  - apiGroups: [ "k8s.cni.cncf.io" ]
     resources:
       - '*'
     verbs:
@@ -102,16 +102,16 @@ metadata:
 data:
   daemon-config.json: |
     {
-        "chrootDir": "/hostroot",
-        "confDir": "/host/etc/cni/net.d",
-        "logFile": "/var/log/multus.log",
-        "logLevel": "verbose",
-        "socketDir": "/host/run/multus/",
-        "cniVersion": "0.3.1",
-        "cniConfigDir": "/host/etc/cni/net.d",
-        "multusConfigFile": "auto",
-        "multusAutoconfigDir": "/host/etc/cni/net.d",
-        "multusMasterCNI": "10-aws.conflist"
+      "chrootDir": "/hostroot",
+      "confDir": "/host/etc/cni/net.d",
+      "logFile": "/var/log/multus.log",
+      "logLevel": "verbose",
+      "socketDir": "/host/run/multus/",
+      "cniVersion": "0.3.1",
+      "cniConfigDir": "/host/etc/cni/net.d",
+      "multusConfigFile": "auto",
+      "multusAutoconfigDir": "/host/etc/cni/net.d",
+      "multusMasterCNI": "10-aws.conflist"
     }
 ---
 apiVersion: apps/v1
@@ -140,15 +140,15 @@ spec:
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
             nodeSelectorTerms:
-            - matchExpressions:
-              - key: kubernetes.io/os
-                operator: In
-                values:
-                - linux
-              - key: eks.amazonaws.com/compute-type
-                operator: NotIn
-                values:
-                - fargate
+              - matchExpressions:
+                  - key: kubernetes.io/os
+                    operator: In
+                    values:
+                      - linux
+                  - key: eks.amazonaws.com/compute-type
+                    operator: NotIn
+                    values:
+                      - fargate
       hostNetwork: true
       hostPID: true
       tolerations:
@@ -222,8 +222,8 @@ spec:
           configMap:
             name: multus-daemon-config
             items:
-            - key: daemon-config.json
-              path: daemon-config.json
+              - key: daemon-config.json
+                path: daemon-config.json
         - name: host-run
           hostPath:
             path: /run

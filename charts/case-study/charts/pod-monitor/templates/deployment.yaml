@@ -26,5 +26,5 @@ spec:
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
-            capabilities: { drop: ["ALL"] }
+            capabilities: { drop: [ "ALL" ] }
           resources: {{- toYaml .Values.resources | nindent 12 }}

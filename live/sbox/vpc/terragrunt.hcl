@@ -1,5 +1,5 @@
 include "root" {
-  path = find_in_parent_folders("root.hcl")
+  path   = find_in_parent_folders("root.hcl")
   expose = true
 }
 
@@ -10,8 +10,8 @@ terraform {
 
 locals {
   env_vars = read_terragrunt_config(find_in_parent_folders("env.hcl"))
-  vpc  = local.env_vars.locals.vpc
-  name = "vpc-${include.root.locals.app}-${include.root.locals.env}-01"
+  vpc      = local.env_vars.locals.vpc
+  name     = "vpc-${include.root.locals.app}-${include.root.locals.env}-01"
 }
 
 

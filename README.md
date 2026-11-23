@@ -47,7 +47,7 @@ aws sso login --profile casestudy
 ## Quick start
 
 ```bash
-# 1. Infrastructure setup [more details in details: live/README.md]
+# 1. Infrastructure setup [more details in details: live/README.mds]
 cd live/sbox/vpc && terragrunt backend bootstrap && cd ..
 terragrunt run --all apply
 

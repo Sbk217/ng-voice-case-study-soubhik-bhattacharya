@@ -30,7 +30,7 @@ spec:
             capabilities: { drop: [ "ALL" ] }
           command: [ "bash", "-c" ]
           args: # Ordinal 0 gets the primary config and init script; any other ordinal gets the replica's. A StatefulSet numbers its pods 0, 1, 2, …, and that number is the ordinal. It's part of the pod name (mysql-0, mysql-1) and stays the same
-          # across restarts. The init script extracts it with ${HOSTNAME##*-} (everything after the last -) to decide the role (0 is the primary, anything else a replica) and the unique server-id (100 + ordinal).
+            # across restarts. The init script extracts it with ${HOSTNAME##*-} (everything after the last -) to decide the role (0 is the primary, anything else a replica) and the unique server-id (100 + ordinal).
             - |
               set -ex
               ordinal=${HOSTNAME##*-}
@@ -53,7 +53,7 @@ spec:
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
-              drop: ["ALL"]
+              drop: [ "ALL" ]
           ports:
             - name: mysql
               containerPort: 3306
@@ -77,22 +77,22 @@ spec:
               mountPath: /docker-entrypoint-initdb.d # scripts run only on first initialization.
           resources:
             requests: { cpu: 250m, memory: 512Mi } #setting uperlmits for db provisioning
-            limits:   { memory: 1Gi }
+            limits: { memory: 1Gi }
           readinessProbe: # "Ready" only when MySQL answers over TCP. Traffic and the next pod wait for it.
             exec:
-              command: ["sh", "-c", "MYSQL_PWD=\"$MYSQL_ROOT_PASSWORD\" mysql -h 127.0.0.1 -uroot -e 'SELECT 1'"]
+              command: [ "sh", "-c", "MYSQL_PWD=\"$MYSQL_ROOT_PASSWORD\" mysql -h 127.0.0.1 -uroot -e 'SELECT 1'" ]
             initialDelaySeconds: 15
             periodSeconds: 10
           livenessProbe: # restarts the container if MySQL stops responding.
             exec:
-              command: ["sh", "-c", "MYSQL_PWD=\"$MYSQL_ROOT_PASSWORD\" mysqladmin ping -h 127.0.0.1 -uroot"]
+              command: [ "sh", "-c", "MYSQL_PWD=\"$MYSQL_ROOT_PASSWORD\" mysqladmin ping -h 127.0.0.1 -uroot" ]
             initialDelaySeconds: 60
             periodSeconds: 20
       volumes:
         - name: conf # scratch folders shared between the init container and MySQL, recreated with each pod.
-          emptyDir: {}
+          emptyDir: { }
         - name: initdb
-          emptyDir: {}
+          emptyDir: { }
         - name: config-map
           configMap:
             name: mysql-config
@@ -100,7 +100,7 @@ spec:
     - metadata:
         name: data
       spec:
-        accessModes: ["ReadWriteOnce"] # mounted by one node at a time, which is right for EBS.
+        accessModes: [ "ReadWriteOnce" ] # mounted by one node at a time, which is right for EBS.
         storageClassName: gp3 # my class, giving an encrypted gp3 EBS volume in the pod's AZ.
         resources:
           requests:

@@ -63,4 +63,3 @@ resource "helm_release" "aws_lbc" {
 
   depends_on = [module.lbc_role]
 }
-

@@ -8,9 +8,9 @@ kind: Role
 metadata:
   name: pod-monitor
 rules:
-  - apiGroups: [""]
-    resources: ["pods"]
-    verbs: ["get", "list", "watch"]     # read-only, this namespace only
+  - apiGroups: [ "" ]
+    resources: [ "pods" ]
+    verbs: [ "get", "list", "watch" ]     # read-only, this namespace only
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
