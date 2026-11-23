@@ -1,7 +1,44 @@
-.idea/
-*.iml
-.terragrunt-cache/
+# --- Terraform / Terragrunt ---
 .terraform/
+.terragrunt-cache/
 *.tfstate
 *.tfstate.*
+*.tfplan
 tfplan
+crash.log
+crash.*.log
+*.tfvars
+!example.tfvars
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+# keep: .terraform.lock.hcl  (commit it, pins provider versions)
+
+# --- Go ---
+app/pod-monitor/pod-monitor     # local build binary
+*.exe
+*.test
+*.out
+
+# --- Helm ---
+charts/**/charts/*.tgz          # packaged dependencies (helm dependency build)
+*.tgz
+
+# --- Kubernetes / secrets ---
+kubeconfig*
+*.kubeconfig
+*.pem
+*.key
+.env
+.env.*
+git rm --cached ng_voice_case_study_soubhik_bhattacharya.iml
+# --- IDE / OS ---
+.idea/
+*.iml
+.vscode/
+.DS_Store
+
+# --- Local scratch ---
+*.sql                           # local DB dumps should not be commited
+*.zip
