@@ -1,0 +1,6 @@
+image:
+  repository: 966454767733.dkr.ecr.eu-central-1.amazonaws.com/pod-monitor
+  tag: "0.1.0"
+resources:
+  requests: { cpu: 10m, memory: 32Mi }
+  limits:   { memory: 64Mi }

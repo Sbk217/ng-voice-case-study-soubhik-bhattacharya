@@ -8,3 +8,10 @@ mysql: #everything under this key is passed to the sub chart
 
 web:
   enabled: true
+
+pod-monitor:
+  enabled: true
+
+multus:
+  enabled: true
+  master: ens7

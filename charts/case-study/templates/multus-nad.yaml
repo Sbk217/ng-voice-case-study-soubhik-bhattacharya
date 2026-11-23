@@ -1,0 +1,26 @@
+## Infrastrcuture side is done  but due to lack of time to implement and test
+
+
+{{- if .Values.multus.enabled }}
+apiVersion: k8s.cni.cncf.io/v1
+kind: NetworkAttachmentDefinition
+metadata:
+  name: multus-net
+spec:
+  config: |
+    {
+      "cniVersion": "0.3.1",
+      "type": "ipvlan",
+      "master": "{{ .Values.multus.master }}",
+      "mode": "l2",
+      "ipam": {
+        "type": "host-local",
+        "subnet": "10.10.64.0/24",
+        "rangeStart": "10.10.64.11",
+        "rangeEnd": "10.10.64.13",
+        "routes": [
+          { "dst": "10.20.0.0/16", "gw": "10.10.64.1" }
+        ]
+      }
+    }
+{{- end }}

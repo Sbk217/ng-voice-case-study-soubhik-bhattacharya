@@ -1,0 +1,26 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: pod-monitor
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: pod-monitor
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch"]     # read-only, this namespace only
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: pod-monitor
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: pod-monitor
+subjects:
+  - kind: ServiceAccount
+    name: pod-monitor
+    namespace: {{ .Release.Namespace }}

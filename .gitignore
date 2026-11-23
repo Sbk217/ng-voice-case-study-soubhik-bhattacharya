@@ -32,7 +32,6 @@ kubeconfig*
 *.key
 .env
 .env.*
-git rm --cached ng_voice_case_study_soubhik_bhattacharya.iml
 # --- IDE / OS ---
 .idea/
 *.iml

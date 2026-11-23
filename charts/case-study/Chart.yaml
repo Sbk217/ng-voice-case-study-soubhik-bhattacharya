@@ -11,3 +11,7 @@ dependencies:
   - name: web
     version: 0.1.0
     condition: web.enabled
+
+  - name: pod-monitor
+    version: 0.1.0
+    condition: pod-monitor.enabled

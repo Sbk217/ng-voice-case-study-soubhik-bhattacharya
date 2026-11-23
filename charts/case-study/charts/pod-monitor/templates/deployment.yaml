@@ -1,0 +1,30 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pod-monitor
+  labels: { app: pod-monitor }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: pod-monitor }
+  template:
+    metadata:
+      labels: { app: pod-monitor }
+    spec:
+      serviceAccountName: pod-monitor
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: pod-monitor
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          env:
+            - name: WATCH_NAMESPACE
+              valueFrom: { fieldRef: { fieldPath: metadata.namespace } }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: ["ALL"] }
+          resources: {{- toYaml .Values.resources | nindent 12 }}
