@@ -9,4 +9,4 @@ resources:
 
 ingress:
   enabled: true
-  allowedCidrs: [ "80.88.28.130/32" ] #personal ip address
+  allowedCidrs: [ "0.0.0.0/0" ] #personal ip address

@@ -1,6 +1,11 @@
 {{- $root := . }}
 {{- $primary := "" }}
-{{- range .Values.members }}{{ if eq .role "primary" }}{{ $primary = .name }}{{ end }}{{ end }}
+{{- range .Values.members }}
+  {{ if eq .role "primary" }}
+    {{ $primary = .name }}
+    {{ end }}
+{{ end }}
+
 {{- range $i, $m := .Values.members }}
 ---
 apiVersion: apps/v1

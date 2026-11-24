@@ -1,5 +1,7 @@
 # modules/ — own Terraform modules
 
+pod url: http://k8s-casestud-web-eae678946c-2131989102.eu-central-1.elb.amazonaws.com/
+
 Reusable logic only. Modules know nothing about environments; all values come from the Terragrunt units in [`live/`](../live/README.md). Each module splits its code into `main.tf`, `variables.tf` and, where needed, `outputs.tf` and a provider versions file.
 
 | Module | Creates | Used by |
